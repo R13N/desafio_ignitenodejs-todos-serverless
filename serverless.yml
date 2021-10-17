@@ -1,0 +1,87 @@
+service: sererlesstodos
+
+plugins:
+  - serverless-offline
+  - serverless-webpack
+  - serverless-dynamodb-local
+
+custom: 
+  webpack:
+    webpackConfig: ./webpack.config.js
+    includeModules: true
+  dynamodb: 
+    stages:
+      - dev
+      - local
+    start: 
+      port: 8000
+      inMemory: true
+      migrate: true
+
+
+provider: 
+  name: aws
+  runtime: nodejs14.x
+  lambdaHashingVersion: "20201221"
+  region: sa-east-1
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:*
+          Resource: "*"
+
+        - Effect: Allow
+          Action: 
+            - s3:*
+          Resource: "*"
+
+functions:
+  createTodo:
+    handler: src/functions/createTodo.handle
+    events:
+      - http:
+          path: /createTodo
+          method: POST
+          cors: true
+    iam:
+      role:
+        statements:
+          - Effect: Allow
+            Action: 
+              - dynamodb:Query
+              - dynamodb:PutItem
+            Resource: "arn:aws:dynamodb:${self.provider.region}:*:table/todos"
+
+  getTodos:
+    handler: src/functions/getTodos.handle
+    events:
+      - http:
+          path: /getTodos/{id}
+          method: GET
+          cors: true    
+    iam:
+      role:
+        statements:
+          - Effect: Allow
+            Action: 
+              - dynamodb:Query
+            Resource: "arn:aws:dynamodb:${self.provider.region}:*:table/todos"
+        
+resources: 
+  Resources: 
+    dbCertificateUsers: 
+      Type: AWS::DynamoDB::Table
+      
+      Properties:
+        TableName: todos
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+        AttributeDefinitions: 
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH  
